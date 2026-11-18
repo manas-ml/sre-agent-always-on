@@ -1,0 +1,8 @@
+node_modules/
+*.sqlite*
+sample-app/logs/
+sample-app/.app.pid
+.data/
+.env
+sample-app/data/*.corrupt-*
+sample-app/*.bak.*

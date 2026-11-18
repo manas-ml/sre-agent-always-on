@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Sentinel · Always-on SRE</title>
+	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+	<link rel="stylesheet" href="/app.css" />
+	<script>
+		try { const t = localStorage.getItem("sentinel.theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+	</script>
+</head>
+<body>
+	<header class="topbar">
+		<button class="icon-btn only-mobile" id="menuBtn" aria-label="Incidents"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+		<div class="brand">
+			<div class="brand-mark" aria-hidden="true">
+				<svg viewBox="0 0 32 32"><path d="M3 17h6l3-8 5 15 4-11 2 4h6" /></svg>
+			</div>
+			<div class="brand-text">
+				<span class="brand-name">Sentinel</span>
+				<span class="brand-sub">Always-on SRE agent</span>
+			</div>
+		</div>
+
+		<div class="agent-pill" id="agentPill" title="Agent status">
+			<span class="pulse-dot"></span><span id="agentPillText">Connecting…</span>
+		</div>
+
+		<div class="health-chip" id="healthChip" title="catalog-api health (live probes)">
+			<span class="health-label">catalog-api</span>
+			<div class="spark" id="spark"></div>
+			<span class="health-value" id="healthValue">—</span>
+		</div>
+
+		<div class="topbar-spacer"></div>
+
+		<span class="model-chip" id="modelChip" title="Model driving the agent">—</span>
+
+		<div class="viewers" id="viewers" title="People viewing now"></div>
+
+		<div class="menu-wrap">
+			<button class="btn btn-ghost" id="simBtn"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg><span class="hide-sm">Simulate</span></button>
+			<div class="menu" id="simMenu" hidden>
+				<div class="menu-title">Inject a fault into catalog-api</div>
+				<button data-fault="script"><b>Broken deploy script</b><small>typo in run.sh launch command</small></button>
+				<button data-fault="config"><b>Bad config</b><small>invalid APP_PORT in config.env</small></button>
+				<button data-fault="data"><b>Corrupt data</b><small>truncated catalog.json → 503</small></button>
+				<button data-fault="crash"><b>Process crash</b><small>kill -9 the service</small></button>
+				<div class="menu-sep"></div>
+				<button data-action="alert"><b>Send test alert</b><small>POST a sample webhook payload</small></button>
+				<button data-fault="reset"><b>Reset sample app</b><small>restore golden files &amp; restart</small></button>
+			</div>
+		</div>
+
+		<button class="icon-btn" id="themeBtn" aria-label="Toggle theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+		<button class="me-chip" id="meChip" title="Change your name"><span class="avatar sm" id="meAvatar"></span><span class="hide-sm" id="meName"></span></button>
+	</header>
+
+	<div class="layout">
+		<aside class="sidebar" id="sidebar">
+			<div class="sidebar-head">
+				<div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="search" placeholder="Search incidents" /></div>
+				<div class="tabs" id="filterTabs">
+					<button data-filter="active" class="active">Active <span id="countActive">0</span></button>
+					<button data-filter="resolved">Resolved <span id="countResolved">0</span></button>
+					<button data-filter="all">All</button>
+				</div>
+			</div>
+			<div class="incident-list" id="incidentList"></div>
+		</aside>
+
+		<main class="main" id="main">
+			<section class="empty" id="emptyState">
+				<div class="radar"><span></span><span></span><span></span><div class="radar-core"><svg viewBox="0 0 32 32"><path d="M3 17h6l3-8 5 15 4-11 2 4h6" /></svg></div></div>
+				<h1>All quiet. Sentinel is on watch.</h1>
+				<p>The agent probes <code id="emptyUrl">catalog-api</code> continuously and opens an incident on its own when something breaks. Alerts can also be pushed by webhook.</p>
+				<div class="empty-actions">
+					<button class="btn btn-primary" data-fault="script">Break the deploy script</button>
+					<button class="btn" data-action="alert">Send a test alert</button>
+				</div>
+				<pre class="snippet">./scripts/trigger-alert.sh            # or
+curl -X POST $SENTINEL_URL/api/alerts -H 'content-type: application/json' \
+     -d @scripts/sample-alert.json</pre>
+			</section>
+
+			<section class="incident" id="incidentView" hidden>
+				<div class="incident-head">
+					<div class="incident-title-row">
+						<span class="sev-badge" id="incSev"></span>
+						<span class="inc-id" id="incId"></span>
+						<h2 id="incTitle"></h2>
+					</div>
+					<div class="incident-meta">
+						<span class="status-badge" id="incStatus"></span>
+						<span id="incMeta"></span>
+						<div class="head-actions">
+							<button class="btn btn-danger btn-sm" id="stopBtn" hidden><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Stop agent</button>
+							<button class="btn btn-sm" id="resolveBtn"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</button>
+							<button class="icon-btn only-narrow" id="railBtn" aria-label="Details"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg></button>
+						</div>
+					</div>
+					<div class="run-strip" id="runStrip"></div>
+				</div>
+
+				<div class="transcript-wrap" id="scroller">
+					<div class="transcript" id="transcript"></div>
+					<div class="transcript" id="liveArea"></div>
+					<button class="jump" id="jumpBtn" hidden>↓ New activity</button>
+				</div>
+
+				<div class="composer">
+					<div class="typing" id="typing"></div>
+					<div class="composer-box">
+						<textarea id="input" rows="1" placeholder="Message Sentinel… (e.g. “check the config before restarting”)"></textarea>
+						<div class="composer-row">
+							<div class="seg" id="modeSeg">
+								<button data-mode="steer" class="active" title="The agent reads this and acts on it"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Steer agent</button>
+								<button data-mode="note" title="Shared note for humans; the agent does not read it"><svg viewBox="0 0 24 24"><path d="M4 4h16v12l-4 4H4z"/></svg>Note</button>
+							</div>
+							<span class="composer-hint" id="hint"></span>
+							<button class="btn btn-primary btn-sm" id="sendBtn">Send <kbd>⌘↵</kbd></button>
+						</div>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<aside class="rail" id="rail">
+			<div class="rail-card" id="railIncident" hidden>
+				<h3>Incident</h3>
+				<dl class="facts" id="facts"></dl>
+			</div>
+			<div class="rail-card">
+				<h3>People here</h3>
+				<div class="people" id="people"></div>
+			</div>
+			<div class="rail-card">
+				<h3>Service health <span class="muted" id="uptime"></span></h3>
+				<div class="spark big" id="sparkBig"></div>
+				<div class="health-legend"><span>last 90 probes</span><span id="lastProbe"></span></div>
+			</div>
+			<div class="rail-card" id="railUsage" hidden>
+				<h3>Agent usage</h3>
+				<dl class="facts" id="usage"></dl>
+			</div>
+			<div class="rail-card durable">
+				<h3><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>Durable by design</h3>
+				<p>Every model turn, tool call and message is committed to the pi-durable SQLite session <em>before</em> it appears here. Kill the server mid-incident — it resumes where it stopped.</p>
+			</div>
+		</aside>
+	</div>
+
+	<div class="modal-backdrop" id="modal" hidden>
+		<form class="modal" id="modalForm">
+			<div class="brand-mark lg"><svg viewBox="0 0 32 32"><path d="M3 17h6l3-8 5 15 4-11 2 4h6" /></svg></div>
+			<h2>Join the war room</h2>
+			<p>Your name is shown to other operators and to the agent when you steer it.</p>
+			<label>Name<input id="nameInput" maxlength="24" autocomplete="nickname" placeholder="e.g. ann" required /></label>
+			<label id="tokenRow" hidden>Access token<input id="tokenInput" type="password" autocomplete="current-password" placeholder="SRE_ACCESS_TOKEN" /></label>
+			<div class="modal-err" id="modalErr"></div>
+			<button class="btn btn-primary" type="submit">Continue</button>
+		</form>
+	</div>
+
+	<div class="toasts" id="toasts"></div>
+	<script src="/app.js" type="module"></script>
+</body>
+</html>

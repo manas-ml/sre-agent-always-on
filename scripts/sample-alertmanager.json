@@ -1,0 +1,15 @@
+{
+  "receiver": "sentinel",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": { "alertname": "CatalogApiDown", "service": "catalog-api", "severity": "critical", "job": "catalog-api" },
+      "annotations": {
+        "summary": "catalog-api down (Alertmanager)",
+        "description": "up{job=\"catalog-api\"} == 0 for 2m"
+      },
+      "fingerprint": "am-catalog-api-down"
+    }
+  ]
+}

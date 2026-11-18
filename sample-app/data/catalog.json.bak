@@ -1,0 +1,7 @@
+{
+  "items": [
+    { "sku": "SKU-1001", "name": "Durable Widget", "stock": 42 },
+    { "sku": "SKU-1002", "name": "Resilient Gadget", "stock": 17 },
+    { "sku": "SKU-1003", "name": "Idempotent Gizmo", "stock": 8 }
+  ]
+}

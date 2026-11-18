@@ -1,0 +1,11 @@
+{
+  "name": "sentinel-sre-agent",
+  "private": true,
+  "description": "Always-on SRE agent POC on pi-durable, with a shared live web UI",
+  "scripts": {
+    "setup": "npm --prefix agent ci",
+    "start": "bash sample-app/run.sh start; npm --prefix agent start",
+    "typecheck": "npm --prefix agent run typecheck",
+    "alert": "bash scripts/trigger-alert.sh"
+  }
+}

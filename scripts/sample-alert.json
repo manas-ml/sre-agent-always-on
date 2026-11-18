@@ -1,0 +1,9 @@
+{
+  "source": "test-script",
+  "service": "catalog-api",
+  "severity": "critical",
+  "title": "catalog-api is returning errors on /health",
+  "description": "Synthetic check from scripts/trigger-alert.sh: /health failing from 2 regions for 3 minutes.",
+  "fingerprint": "catalog-api:health:test",
+  "labels": { "env": "demo", "team": "platform", "region": "eu-west" }
+}
